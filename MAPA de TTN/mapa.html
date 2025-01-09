@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mapa Dinámico</title>
+  <!-- Estilo para Leaflet.js -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    html, body, #map {
+      height: 100%;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <!-- Contenedor del mapa -->
+  <div id="map"></div>
+
+  <!-- Scripts necesarios -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+  <script>
+    // Inicializa el mapa centrado en coordenadas iniciales (Madrid)
+    const map = L.map('map').setView([40.4168, -3.7038], 13);
+
+    // Añade el tile de OpenStreetMap
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Marcador inicial
+    const marker = L.marker([40.4168, -3.7038]).addTo(map);
+
+    // URL y clave de API para la integración de Storage en TTN
+    const apiUrl = "https://eu1.cloud.thethings.network/api/v3/as/applications/gps-4-pet/packages/storage/uplink_message";
+    const apiKey = "NNSXS.4MMFSUA3FIGF7SNOHMP4KQUKLJBZTFGHEAEC5EI.PM6WU3BKDID7HQUSBARSWWFHOTHRTVQ4RYBFBWYQA77JLP2EW6ZQ"; // Sustituye por tu clave API de TTN
+
+    // Función para obtener los datos de la API y actualizar el mapa
+  async function updateMap() {
+  try {
+    const response = await fetch(apiUrl, {
+      headers: {
+        "Authorization": `Bearer ${apiKey}`
+      }
+    });
+
+    const data = await response.json(); // Obtiene los datos como JSON
+    console.log('Datos obtenidos de la API:', data);
+
+    if (data.length > 0) {
+      const latest = data[data.length - 1]; // Toma el mensaje más reciente
+      const { latitude, longitude } = latest.result.decoded_payload;
+
+      // Actualiza el marcador y centra el mapa
+      marker.setLatLng([latitude, longitude]);
+      map.setView([latitude, longitude]);
+
+      console.log('Mapa actualizado con:', { latitude, longitude });
+    } else {
+      console.warn('No se encontraron datos en la API.');
+    }
+  } catch (error) {
+    console.error('Error al consultar la API:', error);
+  }
+}

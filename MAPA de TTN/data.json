@@ -1,0 +1,18 @@
+const fs = require('fs');
+const fetch = require('node-fetch');
+
+const apiUrl = "https://eu1.cloud.thethings.network/api/v3/as/applications/gps-4-pet/packages/storage/uplink_message";
+const apiKey = "NNSXS.4MMFSUA3FIGF7SNOHMP4KQUKLJBZTFGHEAEC5EI.PM6WU3BKDID7HQUSBARSWWFHOTHRTVQ4RYBFBWYQA77JLP2EW6ZQ";
+
+async function fetchAndSaveData() {
+  const response = await fetch(apiUrl, {
+    headers: {
+      "Authorization": `Bearer ${apiKey}`
+    }
+  });
+  const data = await response.json();
+  fs.writeFileSync('data.json', JSON.stringify(data, null, 2));
+  console.log('Datos guardados en data.json');
+}
+
+fetchAndSaveData();

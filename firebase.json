@@ -1,0 +1,10 @@
+{
+  "hosting": {
+    "public": "cd /Users/joni_5/Documents/PlatformIO/Projects/ttgo-tbeam-ttn-tracker-master_Jueves-19/Implementar MAPA/public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ]
+  }
+}
