@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>GPS Tracker Map</title>
+  <!-- Incluir los estilos de Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    body, html {
+      height: 100%;
+      margin: 0;
+    }
+    #map {
+      height: 100%;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <!-- Div donde se mostrará el mapa -->
+  <div id="map"></div>
+  <script>
+    // Inicializar el mapa centrado en Madrid
+    const map = L.map('map').setView([40.4168, -3.7038], 13);
+    console.log("Mapa inicializado correctamente.");
+
+    // Cargar el mapa base de OpenStreetMap
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+    }).addTo(map);
+
+    // Array global para almacenar las posiciones GPS
+    let route = [];
+    let userZoomLevel = map.getZoom(); // Almacenar el nivel de zoom del usuario
+
+    // Detectar cambios de zoom del usuario y almacenarlos
+    map.on('zoomend', () => {
+      userZoomLevel = map.getZoom();
+    });
+
+    function fetchData() {
+      console.log("Iniciando la solicitud a TTN...");
+      fetch('https://eu1.cloud.thethings.network/api/v3/as/applications/gps-4-pet/devices/jonatan-team-abp/packages/storage/uplink_message?type=uplink_message', {
+        headers: {
+          'Authorization': 'Bearer NNSXS.PSKJYTS4QOLSCA2DMDMOTMOHQAVBZSU5SLMDHYQ.IDARCH5KQFFDMZIZQLVRI3573UNBLAQGU6HIF6HZYMXUITHFRZ2A'
+        }
+      })
+      .then(response => response.text()) // Obtener como texto
+      .then(rawData => {
+        try {
+          console.log("Datos en bruto obtenidos desde TTN:", rawData);
+
+          // Dividir los bloques JSON por líneas nuevas
+          const jsonBlocks = rawData.trim().split('\n');
+          console.log("Bloques JSON separados:", jsonBlocks);
+
+          // Procesar cada bloque JSON individualmente
+          jsonBlocks.forEach((block, index) => {
+            console.log(`Procesando bloque JSON #${index + 1}:`, block);
+            const data = JSON.parse(block); // Convertir cada bloque en un objeto JSON
+            console.log("Datos convertidos a JSON:", data);
+
+            const result = data.result;
+            if (!result || !result.uplink_message || !result.uplink_message.decoded_payload) {
+              console.error("Estructura de datos inesperada:", data);
+              return;
+            }
+
+            const decoded = result.uplink_message.decoded_payload;
+            const lat = decoded.latitude;
+            const lng = decoded.longitude;
+            const altitude = decoded.altitude;
+
+            if (lat && lng) {
+              console.log("Coordenadas válidas:", lat, lng);
+
+              // Agregar nueva posición al recorrido
+              route.push([lat, lng]);
+
+              // Limitar el recorrido a los últimos 10 puntos
+              if (route.length > 10) {
+                route.shift(); // Eliminar el punto más antiguo
+              }
+
+              // Limpiar el mapa (excepto la línea del recorrido)
+              map.eachLayer(layer => {
+                if (layer instanceof L.Marker) {
+                  map.removeLayer(layer);
+                }
+              });
+
+              // Dibujar la línea del recorrido
+              map.eachLayer(layer => {
+                if (layer instanceof L.Polyline) {
+                  map.removeLayer(layer);
+                }
+              });
+              L.polyline(route, { color: 'blue' }).addTo(map);
+
+              // Agregar marcadores diferenciados
+              route.forEach((point, index) => {
+                const markerColor = index === 0 ? 'green' : index === route.length - 1 ? 'red' : 'blue';
+                const markerIcon = L.icon({
+                  iconUrl: markerColor === 'green'
+                    ? 'https://cdn-icons-png.flaticon.com/512/190/190411.png' // Verde para el inicio
+                    : markerColor === 'red'
+                    ? 'https://cdn-icons-png.flaticon.com/512/190/190406.png' // Rojo para el final
+                    : 'https://cdn-icons-png.flaticon.com/512/190/190421.png', // Azul para intermedios
+                  iconSize: [25, 41], // Tamaño del icono
+                  iconAnchor: [12, 41], // Punto de anclaje
+                  popupAnchor: [1, -34] // Posición del popup
+                });
+
+                L.marker(point, { icon: markerIcon })
+                  .addTo(map)
+                  .bindPopup(`
+                    <b>Latitud:</b> ${point[0]}<br>
+                    <b>Longitud:</b> ${point[1]}<br>
+                    <b>Altitud:</b> ${index === route.length - 1 ? altitude : 'Desconocida'} m
+                  `);
+              });
+
+              // Mantener el zoom del usuario
+              map.setView(route[route.length - 1], userZoomLevel);
+            } else {
+              console.error("Coordenadas no válidas:", decoded);
+            }
+          });
+        } catch (error) {
+          console.error("Error al procesar JSON:", rawData, error);
+        }
+      })
+      .catch(error => console.error("Error al obtener datos:", error));
+    }
+
+    // Llamar a la función cada 30 segundos
+    setInterval(fetchData, 30000);
+    fetchData(); // Llamar a la función inmediatamente al cargar la página
+  </script>
+</body>
+</html>
